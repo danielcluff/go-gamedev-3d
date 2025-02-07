@@ -11,12 +11,14 @@ import (
 
 type Game struct {
 	Camera r.Camera3D
-	*Assets
+	Player Player
+	Assets
 }
 type Assets struct {
-	*Models
-	*Audio
-	*Textures
+	Models
+	Audio
+	Textures
+	Shaders
 	Font r.Font
 }
 type Models struct {
@@ -27,6 +29,9 @@ type Textures struct {
 	asteroids []r.Texture2D
 	floor     r.Texture2D
 	light     r.Texture2D
+}
+type Shaders struct {
+	flash r.Shader
 }
 type Audio struct {
 	music     r.Music
@@ -46,16 +51,20 @@ func (g *Game) Init() {
 	g.Camera.Fovy = 45
 	g.Camera.Projection = r.CameraPerspective
 
-	// g.Player = PlayerCreate(g.Assets.Player, r.Vector3{X: 0, Y: 0, Z: 0})
-	r.PlayMusicStream(g.Audio.music)
+	g.Player = *PlayerCreate(g.player, r.Vector3{X: 0, Y: 0, Z: 0})
+	// r.PlayMusicStream(g.Audio.music)
 }
 func (g *Game) Update() {
 	// dt = r.GetFrameTime()
+	// r.UpdateMusicStream(g.Audio.music)
 }
 func (g *Game) Draw() {
-	r.ClearBackground(BG_COLOR)
 	r.BeginDrawing()
+	r.ClearBackground(BG_COLOR)
 	r.BeginMode3D(g.Camera)
+
+	g.Player.Draw()
+
 	r.EndMode3D()
 	r.EndDrawing()
 
@@ -64,7 +73,7 @@ func (g *Game) Run() {
 	g.Init()
 	defer r.CloseWindow()
 	defer r.CloseAudioDevice()
-	defer r.UnloadAudioStream(g.Assets.Audio.music.Stream)
+	// defer r.UnloadAudioStream(g.Audio.music.Stream)
 
 	for !r.WindowShouldClose() {
 
@@ -73,12 +82,14 @@ func (g *Game) Run() {
 	}
 }
 func (g *Game) ImportAssets() {
-	g.Assets.Models.player = r.LoadModel(filepath.Join("assets", "models", "ship.glb"))
-	g.Assets.Models.laser = r.LoadModel(filepath.Join("assets", "models", "laser.glb"))
+	g.Models.player = r.LoadModel(filepath.Join("assets", "models", "ship.glb"))
+	g.Models.laser = r.LoadModel(filepath.Join("assets", "models", "laser.glb"))
+
+	g.Shaders.flash = r.LoadShader("", filepath.Join("assets", "shaders", "flash.fs"))
 
 	txtr := []string{"red", "green", "orange", "purple"}
-	for _, t := range txtr {
-		asset := r.LoadTexture(filepath.Join("assets", "textures", fmt.Sprintf("%v.png", t)))
+	for i := range txtr {
+		asset := r.LoadTexture(filepath.Join("assets", "textures", fmt.Sprintf("%v.png", txtr[i])))
 		g.Assets.Textures.asteroids = append(g.Assets.Textures.asteroids, asset)
 	}
 	g.Assets.Textures.floor = r.LoadTexture(filepath.Join("assets", "textures", "dark.png"))
@@ -89,6 +100,7 @@ func (g *Game) ImportAssets() {
 	g.Assets.Audio.explosion = r.LoadSound(filepath.Join("assets", "models", "explosion.wav"))
 
 	g.Assets.Font = r.LoadFontEx(filepath.Join("assets", "font", "Stormfaze.otf"), FONT_SIZE, nil, 0)
+
 }
 func (g *Game) DiscardEntities() {
 
