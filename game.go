@@ -40,7 +40,7 @@ type Audio struct {
 }
 
 func (g *Game) Init() {
-	r.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "3d space shooter")
+	r.InitWindow(WINDOW_WIDTH/3*2, WINDOW_HEIGHT/3*2, "3d space shooter")
 	r.InitAudioDevice()
 	g.ImportAssets()
 
@@ -55,7 +55,8 @@ func (g *Game) Init() {
 	// r.PlayMusicStream(g.Audio.music)
 }
 func (g *Game) Update() {
-	// dt = r.GetFrameTime()
+	dt := r.GetFrameTime()
+	g.Player.Update(dt)
 	// r.UpdateMusicStream(g.Audio.music)
 }
 func (g *Game) Draw() {
