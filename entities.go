@@ -7,43 +7,42 @@ import (
 type Entity struct {
 	Model    r.Model
 	Position r.Vector3
+	Discard  bool
 }
-type Player struct {
+
+func (e Entity) Draw() {
+	r.DrawModel(e.Model, e.Position, 1, r.White)
+}
+
+func CreateKillWall(z float32) *Entity {
+	model := r.LoadModelFromMesh(r.GenMeshCube(10, 2, 1))
+	wall := &Entity{
+		Model:    model,
+		Position: r.Vector3{X: 0, Y: 0, Z: z},
+	}
+	return wall
+}
+
+type Laser struct {
+	*Entity
 	Direction r.Vector3
 	Speed     float32
-	*Entity
 }
 
-func PlayerCreate(model r.Model, position r.Vector3) *Player {
-	player := &Player{
-		Direction: r.Vector3{X: 0, Y: 0, Z: 0},
-		Speed:     12,
+func LaserCreate(model r.Model, pos r.Vector3) *Laser {
+	laser := &Laser{
 		Entity: &Entity{
 			Model:    model,
-			Position: position,
+			Position: pos,
 		},
+		Direction: r.Vector3{X: 0, Y: 0, Z: -1},
+		Speed:     LASER_SPEED,
 	}
-	return player
+	return laser
 }
-func (p *Player) Input() {
-	p.Direction.X = float32(BoolToInt(r.IsKeyDown(r.KeyRight))) - float32(BoolToInt(r.IsKeyDown(r.KeyLeft)))
+func (l *Laser) Move(dt float32) {
+	l.Position.Z += l.Speed * l.Direction.Z * dt
 }
-func (p *Player) Move(dt float32) {
-	p.Position.X += p.Speed * p.Direction.X * dt
-}
-func (p *Player) Constraint() {
-	if p.Position.X > 10 {
-		p.Position.X = 10
-	} else if p.Position.X < -10 {
-		p.Position.X = -10
-	}
-}
-func (p *Player) Update(dt float32) {
-	p.Input()
-	p.Move(dt)
-	p.Constraint()
-
-}
-func (p Player) Draw() {
-	r.DrawModel(p.Model, p.Position, 1, r.White)
+func (l *Laser) Update(dt float32) {
+	l.Move(dt)
 }

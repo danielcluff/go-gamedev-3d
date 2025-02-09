@@ -10,8 +10,12 @@ import (
 // have the player moving along a grid and create meteors ahead of the player
 
 type Game struct {
-	Camera r.Camera3D
-	Player Player
+	Camera        r.Camera3D
+	Player        *Player
+	Lasers        []*Laser
+	Asteroids     []*Asteroid
+	AsteroidTimer *Timer
+	KillWall      [2]*Entity
 	Assets
 }
 type Assets struct {
@@ -50,13 +54,25 @@ func (g *Game) Init() {
 	g.Camera.Up = r.Vector3{X: 0, Y: 1, Z: 0}
 	g.Camera.Fovy = 45
 	g.Camera.Projection = r.CameraPerspective
-
-	g.Player = *PlayerCreate(g.player, r.Vector3{X: 0, Y: 0, Z: 0})
+	g.KillWall[0] = CreateKillWall(-5)
+	g.KillWall[1] = CreateKillWall(21)
+	g.Player = PlayerCreate(g.player, r.Vector3{X: 0, Y: 0, Z: 0}, g.ShootLaser)
+	g.AsteroidTimer = TimerCreate(0.4, true, true, g.CreateAsteroid)
 	// r.PlayMusicStream(g.Audio.music)
 }
 func (g *Game) Update() {
 	dt := r.GetFrameTime()
 	g.Player.Update(dt)
+	g.AsteroidTimer.Update()
+	for i := range g.Asteroids {
+		roid := g.Asteroids[i]
+		roid.Update(dt)
+	}
+	for i := range g.Lasers {
+		laser := g.Lasers[i]
+		laser.Update(dt)
+	}
+	g.CheckCollisions()
 	// r.UpdateMusicStream(g.Audio.music)
 }
 func (g *Game) Draw() {
@@ -65,6 +81,8 @@ func (g *Game) Draw() {
 	r.BeginMode3D(g.Camera)
 
 	g.Player.Draw()
+	g.DrawAsteroids()
+	g.DrawLasers()
 
 	r.EndMode3D()
 	r.EndDrawing()
@@ -96,13 +114,39 @@ func (g *Game) ImportAssets() {
 	g.Assets.Textures.floor = r.LoadTexture(filepath.Join("assets", "textures", "dark.png"))
 	g.Assets.Textures.light = r.LoadTexture(filepath.Join("assets", "textures", "light.png"))
 
-	g.Assets.Audio.music = r.LoadMusicStream(filepath.Join("assets", "models", "laser.wav"))
-	g.Assets.Audio.laser = r.LoadSound(filepath.Join("assets", "models", "laser.wav"))
-	g.Assets.Audio.explosion = r.LoadSound(filepath.Join("assets", "models", "explosion.wav"))
+	g.Assets.Audio.music = r.LoadMusicStream(filepath.Join("assets", "audio", "music.wav"))
+	g.Assets.Audio.laser = r.LoadSound(filepath.Join("assets", "audio", "laser.wav"))
+	g.Assets.Audio.explosion = r.LoadSound(filepath.Join("assets", "audio", "explosion.wav"))
 
 	g.Assets.Font = r.LoadFontEx(filepath.Join("assets", "font", "Stormfaze.otf"), FONT_SIZE, nil, 0)
 
 }
 func (g *Game) DiscardEntities() {
 
+}
+func (g *Game) CheckCollisions() {
+	for a := range g.Asteroids {
+		roid := *g.Asteroids[a]
+		// check collision if true
+		roid.Discard = true
+	}
+}
+func (g *Game) DrawLasers() {
+	for _, laser := range g.Lasers {
+		laser.Draw()
+	}
+}
+func (g *Game) DrawAsteroids() {
+	for _, roid := range g.Asteroids {
+		roid.Draw()
+	}
+}
+func (g *Game) CreateAsteroid() {
+	roid := AsteroidCreate(g.asteroids)
+	g.Asteroids = append(g.Asteroids, roid)
+}
+func (g *Game) ShootLaser(pos r.Vector3) {
+	laser := LaserCreate(g.Models.laser, pos)
+	g.Lasers = append(g.Lasers, laser)
+	r.PlaySound(g.Audio.laser)
 }
