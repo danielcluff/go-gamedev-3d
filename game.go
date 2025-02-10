@@ -11,8 +11,9 @@ import (
 
 type Game struct {
 	Camera        r.Camera3D
+	Floor         *Entity
 	Player        *Player
-	Lasers        []*Laser
+	Lasers        []*Entity
 	Asteroids     []*Asteroid
 	AsteroidTimer *Timer
 	KillWall      [2]*Entity
@@ -22,7 +23,6 @@ type Assets struct {
 	Models
 	Audio
 	Textures
-	Shaders
 	Font r.Font
 }
 type Models struct {
@@ -33,9 +33,6 @@ type Textures struct {
 	asteroids []r.Texture2D
 	floor     r.Texture2D
 	light     r.Texture2D
-}
-type Shaders struct {
-	flash r.Shader
 }
 type Audio struct {
 	music     r.Music
@@ -54,16 +51,20 @@ func (g *Game) Init() {
 	g.Camera.Up = r.Vector3{X: 0, Y: 1, Z: 0}
 	g.Camera.Fovy = 45
 	g.Camera.Projection = r.CameraPerspective
+
+	g.Floor = FloorCreate(g.floor)
 	g.KillWall[0] = CreateKillWall(-5)
 	g.KillWall[1] = CreateKillWall(21)
 	g.Player = PlayerCreate(g.player, r.Vector3{X: 0, Y: 0, Z: 0}, g.ShootLaser)
 	g.AsteroidTimer = TimerCreate(0.4, true, true, g.CreateAsteroid)
-	// r.PlayMusicStream(g.Audio.music)
+	r.PlayMusicStream(g.Audio.music)
 }
 func (g *Game) Update() {
 	dt := r.GetFrameTime()
 	g.Player.Update(dt)
 	g.AsteroidTimer.Update()
+	g.CheckCollisions()
+	g.DiscardEntities()
 	for i := range g.Asteroids {
 		roid := g.Asteroids[i]
 		roid.Update(dt)
@@ -72,14 +73,14 @@ func (g *Game) Update() {
 		laser := g.Lasers[i]
 		laser.Update(dt)
 	}
-	g.CheckCollisions()
-	// r.UpdateMusicStream(g.Audio.music)
+	r.UpdateMusicStream(g.Audio.music)
 }
 func (g *Game) Draw() {
 	r.BeginDrawing()
 	r.ClearBackground(BG_COLOR)
 	r.BeginMode3D(g.Camera)
 
+	g.Floor.Draw()
 	g.Player.Draw()
 	g.DrawAsteroids()
 	g.DrawLasers()
@@ -92,7 +93,7 @@ func (g *Game) Run() {
 	g.Init()
 	defer r.CloseWindow()
 	defer r.CloseAudioDevice()
-	// defer r.UnloadAudioStream(g.Audio.music.Stream)
+	defer r.UnloadAudioStream(g.Audio.music.Stream)
 
 	for !r.WindowShouldClose() {
 
@@ -103,8 +104,6 @@ func (g *Game) Run() {
 func (g *Game) ImportAssets() {
 	g.Models.player = r.LoadModel(filepath.Join("assets", "models", "ship.glb"))
 	g.Models.laser = r.LoadModel(filepath.Join("assets", "models", "laser.glb"))
-
-	g.Shaders.flash = r.LoadShader("", filepath.Join("assets", "shaders", "flash.fs"))
 
 	txtr := []string{"red", "green", "orange", "purple"}
 	for i := range txtr {
@@ -122,13 +121,44 @@ func (g *Game) ImportAssets() {
 
 }
 func (g *Game) DiscardEntities() {
+	var lasers []*Entity
+	for l := range g.Lasers {
+		laser := g.Lasers[l]
+		if !laser.Discard {
+			lasers = append(lasers, laser)
+		}
+	}
+	g.Lasers = lasers
 
+	var asteroids []*Asteroid
+	for a := range g.Asteroids {
+		asteroid := g.Asteroids[a]
+		if !asteroid.Discard {
+			asteroids = append(asteroids, asteroid)
+		}
+	}
+	g.Asteroids = asteroids
 }
 func (g *Game) CheckCollisions() {
+	for l := range g.Lasers {
+		laser := g.Lasers[l]
+		for a := range g.Asteroids {
+			roid := *g.Asteroids[a]
+			if r.CheckCollisionBoxSphere(laser.GetBoundingBox(), roid.Position, roid.Radius) {
+				r.PlaySound(g.explosion)
+				laser.Discard = true
+				roid.Hit = true
+				roid.Flash()
+				roid.DeathTimer.Activate()
+			}
+		}
+	}
 	for a := range g.Asteroids {
 		roid := *g.Asteroids[a]
-		// check collision if true
-		roid.Discard = true
+		if r.CheckCollisionBoxSphere(g.Player.GetBoundingBox(), roid.Position, roid.Radius) {
+			r.PlaySound(g.explosion)
+			r.CloseWindow()
+		}
 	}
 }
 func (g *Game) DrawLasers() {
